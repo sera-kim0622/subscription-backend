@@ -4,10 +4,20 @@ import { Subscription } from './entities/subscription.entity';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Product } from '../product/entities/product.entity';
 import { PeriodType } from './types';
+import { PaymentService } from '../payment/payment.service';
+import { UserService } from '../../user/user.service';
 
 let subscriptionService: SubscriptionService;
 let subscriptionRepository;
 let productRepository;
+
+const paymentServiceMock = {
+  getLatestPayment: jest.fn(),
+};
+
+const userServiceMock = {
+  getUser: jest.fn(),
+};
 
 beforeEach(async () => {
   subscriptionRepository = {
@@ -22,6 +32,11 @@ beforeEach(async () => {
   const module: TestingModule = await Test.createTestingModule({
     providers: [
       SubscriptionService,
+      { provide: UserService, useValue: userServiceMock },
+      {
+        provide: PaymentService,
+        useValue: paymentServiceMock,
+      },
       {
         provide: getRepositoryToken(Subscription),
         useValue: subscriptionRepository,
@@ -165,5 +180,39 @@ describe('유저의 현재 구독 정보 확인하는 함수 테스트', () => {
     });
     await subscriptionService.getCurrentSubscription(1);
     expect(subscriptionRepository.findOne).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('결제 후 구독을 재발급하는 함수 테스트', () => {
+  it('유저 확인 -> 가장 최근 결제 건(한 건) 확인 -> 구독 생성 순으로 실행된다.', async () => {
+    const userId = 3;
+
+    const paymentMock = {
+      id: 1,
+      product: {
+        id: 10,
+        type: PeriodType.MONTHLY,
+      },
+    };
+
+    jest.spyOn(userServiceMock, 'getUser').mockResolvedValue({ id: userId });
+    jest
+      .spyOn(paymentServiceMock, 'getLatestPayment')
+      .mockResolvedValue(paymentMock);
+    jest
+      .spyOn(subscriptionService, 'createSubscription')
+      .mockResolvedValue({ id: 99, expiredAt: new Date() });
+
+    const result = await subscriptionService.reissueSubscription(userId);
+
+    expect(userServiceMock.getUser).toHaveBeenCalledWith(userId);
+    expect(paymentServiceMock.getLatestPayment).toHaveBeenCalledWith(userId);
+    expect(subscriptionService.createSubscription).toHaveBeenCalledWith({
+      userId,
+      productId: 10,
+      period: PeriodType.MONTHLY,
+      paymentId: 1,
+    });
+    expect(result).toEqual({ id: 99, expiredAt: new Date() });
   });
 });
