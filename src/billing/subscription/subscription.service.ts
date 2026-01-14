@@ -1,5 +1,7 @@
 import {
   ConflictException,
+  forwardRef,
+  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -9,6 +11,9 @@ import { Repository } from 'typeorm';
 import { Subscription } from './entities/subscription.entity';
 import { Product } from '../product/entities/product.entity';
 import { CreateSubscriptionInput, PeriodType } from './types/index';
+import { UserService } from '../../user/user.service';
+import { PaymentService } from '../payment/payment.service';
+import { SubscriptionOutputDto } from './dtos/subscription.dto';
 
 @Injectable()
 export class SubscriptionService {
@@ -17,6 +22,9 @@ export class SubscriptionService {
     private readonly subscriptionRepository: Repository<Subscription>,
     @InjectRepository(Product)
     private readonly productRepository: Repository<Product>,
+    private readonly userService: UserService,
+    @Inject(forwardRef(() => PaymentService))
+    private readonly paymentService: PaymentService,
   ) {}
 
   /**
@@ -26,7 +34,7 @@ export class SubscriptionService {
    */
   async createSubscription(
     input: CreateSubscriptionInput,
-  ): Promise<Subscription> {
+  ): Promise<SubscriptionOutputDto> {
     const { userId, productId, period, paymentId } = input;
 
     // 동일 거래 중복 방지
@@ -60,7 +68,7 @@ export class SubscriptionService {
       subscription,
     )) as unknown as Subscription;
 
-    return result;
+    return new SubscriptionOutputDto(result);
   }
 
   /**
@@ -92,5 +100,25 @@ export class SubscriptionService {
     }
 
     return subscription;
+  }
+
+  /**
+   * @description 결제가 성공적으로 끝난 후 구독이 제대로 발급이 되지 않은 경우에만 구독을 재발급해주는 함수
+   * 유저 확인 -> 결제 확인 -> 구독 발급(내부 함수 의존)
+   * 이 때, 유저 확인은 유저 서비스에 의존하고 결제 확인은 결제 서비스에 의존
+   * 각자 repository를 연결하게 되면 service가 각자 존재하는 의미가 적어져서 서비스단에서 의존
+   * @param userId
+   */
+  async reissueSubscription(userId: number): Promise<SubscriptionOutputDto> {
+    await this.userService.getUser(userId);
+
+    const payment = await this.paymentService.getLatestPayment(userId);
+
+    return await this.createSubscription({
+      userId,
+      productId: payment.product.id,
+      period: payment.product.type,
+      paymentId: payment.id,
+    });
   }
 }
