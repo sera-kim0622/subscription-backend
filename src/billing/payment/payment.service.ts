@@ -21,6 +21,8 @@ import { PeriodType } from '../subscription/types';
 import { SubscriptionOutputDto } from '../subscription/dtos/subscription.dto';
 import { PaymentOutput } from './dto/payment.dto';
 import { PgPaymentResultMap } from './mocking/purchase.mocking';
+import { ErrorCode } from '../../common/errors/error-code.enum';
+import { GetLatestPaymentOutputDto } from './dto/get-latest-payment.dto';
 
 @Injectable()
 export class PaymentService {
@@ -99,7 +101,7 @@ export class PaymentService {
     // 결제 성공의 경우 : 구독 생성, 구독권과 결제 내역 반환
     // 결제 실패의 경우 : 결제 내역 반환
     if (paymentResult.status === PAYMENT_STATUS.SUCCESS) {
-      let subscription: Subscription;
+      let subscription: SubscriptionOutputDto;
       if (simulate === 'success') {
         try {
           subscription = await this.subscriptionService.createSubscription({
@@ -140,9 +142,7 @@ export class PaymentService {
           price: product.price,
         },
         payment: new PaymentOutput(paymentResult),
-        subscription: subscription
-          ? new SubscriptionOutputDto(subscription)
-          : null,
+        subscription: subscription ?? null,
         resultMessage: subscription
           ? '결제 완료 후 구독권 발급에 성공하였습니다.'
           : '결제는 성공하였으나 구독권 발급에 실패하였습니다.',
@@ -208,5 +208,33 @@ export class PaymentService {
     // 6. 결제 결과 저장하기(새로운 record 생성)
     // 7. 구독 만료시키기(이 때, 연결된 payment_id는 환불한 record로 한다.)
     // 8. 결제, 구독상태 결과 반환
+  }
+
+  /**
+   * @description 한 유저의 가장 최근 결제 중 구독이 발급되지 결제 한 건 가져오는 함수
+   * reissueSubscription에서만 사용 중
+   */
+  async getLatestPayment(userId: number): Promise<GetLatestPaymentOutputDto> {
+    const payment = await this.paymentRepository.findOne({
+      where: {
+        user: { id: userId },
+        issuedSubscription: false,
+      },
+      order: {
+        createdAt: 'DESC',
+      },
+      relations: ['product'],
+    });
+
+    if (!payment) {
+      throw new NotFoundException({
+        code: ErrorCode.NOT_FOUND_DATA,
+        message: '구독권이 발급되지 않은 결제건이 없습니다.',
+      });
+    }
+
+    return new GetLatestPaymentOutputDto(
+      payment as Payment & { product: Product },
+    );
   }
 }
