@@ -192,6 +192,9 @@ describe('결제 후 구독을 재발급하는 함수 테스트', () => {
       product: {
         id: 10,
         type: PeriodType.MONTHLY,
+        name: 'BASIC',
+        price: 1000,
+        createdAt: new Date(),
       },
     };
 
@@ -199,9 +202,17 @@ describe('결제 후 구독을 재발급하는 함수 테스트', () => {
     jest
       .spyOn(paymentServiceMock, 'getLatestPayment')
       .mockResolvedValue(paymentMock);
-    jest
-      .spyOn(subscriptionService, 'createSubscription')
-      .mockResolvedValue({ id: 99, expiredAt: new Date() });
+    jest.spyOn(subscriptionService, 'createSubscription').mockResolvedValue({
+      id: 99,
+      expiredAt: new Date(),
+      product: {
+        id: 10,
+        type: PeriodType.MONTHLY,
+        name: 'BASIC',
+        price: 1000,
+        createdAt: new Date(),
+      },
+    });
 
     const result = await subscriptionService.reissueSubscription(userId);
 
@@ -213,6 +224,16 @@ describe('결제 후 구독을 재발급하는 함수 테스트', () => {
       period: PeriodType.MONTHLY,
       paymentId: 1,
     });
-    expect(result).toEqual({ id: 99, expiredAt: new Date() });
+    expect(result).toEqual({
+      id: 99,
+      expiredAt: new Date(),
+      product: {
+        name: 'BASIC',
+        price: 1000,
+        type: PeriodType.MONTHLY,
+        id: 10,
+        createdAt: new Date(),
+      },
+    });
   });
 });
