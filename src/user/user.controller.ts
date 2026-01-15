@@ -47,6 +47,6 @@ export class UserController {
   @UseGuards(JwtAuthGuard)
   async showProfile(@Req() req: any) {
     const userId = Number(req.user.userId);
-    return await this.userService.getUser(userId);
+    return await this.userService.profile(userId);
   }
 }
