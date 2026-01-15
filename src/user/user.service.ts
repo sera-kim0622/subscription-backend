@@ -15,6 +15,9 @@ import { JwtService } from '@nestjs/jwt';
 import { LoginDto } from './dto/login.dto';
 import { GetUserOutputDto } from './dto/get-user.dto';
 import { ErrorCode } from '../common/errors/error-code.enum';
+import { Payment } from '../billing/payment/entities/payment.entity';
+import { Subscription } from '../billing/subscription/entities/subscription.entity';
+import { ProfileOutputDto } from './dto/profile.dto.ts';
 
 @Injectable()
 export class UserService {
@@ -97,6 +100,55 @@ export class UserService {
     }
 
     return { accessToken };
+  }
+
+  async profile(userId: number): Promise<ProfileOutputDto> {
+    const user = await this.userRepo.findOne({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('존재하지 않는 사용자입니다.');
+    }
+
+    const subscriptions = await this.userRepo.manager
+      .getRepository(Subscription)
+      .createQueryBuilder('subscription')
+      .where('subscription.user_id = :userId', { userId })
+      .orderBy('subscription.expiredAt', 'DESC')
+      .limit(5)
+      .getMany();
+
+    const payments = await this.userRepo.manager
+      .getRepository(Payment)
+      .createQueryBuilder('payment')
+      .where('payment.user_id = :userId', { userId })
+      .orderBy('payment.createdAt', 'DESC')
+      .limit(5)
+      .getMany();
+
+    return new ProfileOutputDto({
+      user,
+      activeSubscriptionId: subscriptions.find((p) => p.expiredAt > new Date())
+        .id,
+      subscriptions: subscriptions.map((p) => {
+        return {
+          id: p.id,
+          productName: p.product.name,
+          expiredAt: p.expiredAt,
+          price: p.product.price,
+        };
+      }),
+      payments: payments.map((p) => {
+        return {
+          id: p.id,
+          status: p.status,
+          amount: p.amount,
+          paymentDate: p.paymentDate,
+          issuedSubscription: p.issuedSubscription,
+        };
+      }),
+    });
   }
 
   async getUser(userId: number): Promise<GetUserOutputDto> {
