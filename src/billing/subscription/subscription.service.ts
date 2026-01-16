@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { MoreThan, Repository } from 'typeorm';
 
 import { Subscription } from './entities/subscription.entity';
 import { Product } from '../product/entities/product.entity';
@@ -93,7 +93,7 @@ export class SubscriptionService {
    */
   async getCurrentSubscription(userId: number) {
     const subscription = await this.subscriptionRepository.findOne({
-      where: { user: { id: userId } },
+      where: { user: { id: userId }, expiredAt: MoreThan(new Date()) },
     });
 
     if (!subscription) {
