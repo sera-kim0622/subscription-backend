@@ -20,7 +20,7 @@ import { PAYMENT_STATUS } from './entities/payment.status';
 import { PeriodType } from '../subscription/types';
 import { SubscriptionOutputDto } from '../subscription/dtos/subscription.dto';
 import { PaymentOutput } from './dto/payment.dto';
-import { PgPaymentResultMap } from './mocking/purchase.mocking';
+import { PgPaymentResultMap } from './portone/purchase.response';
 import { ErrorCode } from '../../common/errors/error-code.enum';
 import { GetLatestPaymentOutputDto } from './dto/get-latest-payment.dto';
 
