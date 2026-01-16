@@ -8,14 +8,14 @@
 
 import { randomUUID } from 'crypto';
 
-export const refundPortOneResponse = (option: {
+export const refundPGResponse = (option: {
   pgPaymentId: string;
   cancelBody: {
     reason: string;
     amount: number;
   };
   state: 'success' | 'fail' | 'requested'; //
-}): PORTONE_PAYMENT_CANCELLATION => {
+}): PG_PAYMENT_CANCELLATION => {
   if (option.state === 'success') {
     return {
       status: 'SUCCEED',
@@ -53,13 +53,13 @@ export const refundPortOneResponse = (option: {
 };
 
 // 결제 결과 타입
-export type PORTONE_PAYMENT_CANCELLATION =
-  | PORTONE_SUCCEEDED_PAYMENT_CANCELLATION
-  | PORTONE_REQUESTED_PAYMENT_CANCELLATION
-  | PORTONE_FAILED_PAYMENT_CANCELLATION;
+export type PG_PAYMENT_CANCELLATION =
+  | PG_SUCCEEDED_PAYMENT_CANCELLATION
+  | PG_REQUESTED_PAYMENT_CANCELLATION
+  | PG_FAILED_PAYMENT_CANCELLATION;
 
 // 결제
-export type PORTONE_PAYMENT_CANCELLATION_RESPONSE = {
+export type PG_PAYMENT_CANCELLATION_RESPONSE = {
   status: 'FAILED' | 'REQUESTED' | 'SUCCEED';
 
   id: string;
@@ -81,21 +81,21 @@ export type PORTONE_PAYMENT_CANCELLATION_RESPONSE = {
   requestedAt: string; // 취소 요청 시점
 };
 
-export type PORTONE_SUCCEEDED_PAYMENT_CANCELLATION =
-  PORTONE_PAYMENT_CANCELLATION_RESPONSE & {
+export type PG_SUCCEEDED_PAYMENT_CANCELLATION =
+  PG_PAYMENT_CANCELLATION_RESPONSE & {
     status: 'SUCCEED'; // 취소 성공
 
     receiptUrl?: string; // 결제 취소된 영수증 url
   };
 
 // ===== 결제 취소 요청 시 객체 ===== //
-export type PORTONE_REQUESTED_PAYMENT_CANCELLATION =
-  PORTONE_PAYMENT_CANCELLATION_RESPONSE & {
+export type PG_REQUESTED_PAYMENT_CANCELLATION =
+  PG_PAYMENT_CANCELLATION_RESPONSE & {
     status: 'REQUESTED'; // 취소 요청
   };
 
 // ===== 결제 취소 요청 실패 시 객체(포트원 명칭: FailedPaymentCancellation) ===== //
-export type PORTONE_FAILED_PAYMENT_CANCELLATION =
-  PORTONE_PAYMENT_CANCELLATION_RESPONSE & {
+export type PG_FAILED_PAYMENT_CANCELLATION =
+  PG_PAYMENT_CANCELLATION_RESPONSE & {
     status: 'FAILED'; // 취소 요청
   };
