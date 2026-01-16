@@ -1,3 +1,16 @@
-import { PurchaseOutputDto } from './purchase.dto';
+import { IsString } from 'class-validator';
 
-export class RefundOutputDto extends PurchaseOutputDto {}
+export class RefundInputDto {
+  @IsString()
+  reason: string;
+}
+
+export class RefundOutputDto {
+  requestAmount: number;
+
+  refundAmount?: number;
+
+  resultMessage: string;
+
+  resultStatus: 'FAILED' | 'REQUESTED' | 'SUCCEED';
+}
