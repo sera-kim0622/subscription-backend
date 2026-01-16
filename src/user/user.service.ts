@@ -114,6 +114,7 @@ export class UserService {
     const subscriptions = await this.userRepo.manager
       .getRepository(Subscription)
       .createQueryBuilder('subscription')
+      .leftJoinAndSelect('subscription.product', 'product')
       .where('subscription.user_id = :userId', { userId })
       .orderBy('subscription.expiredAt', 'DESC')
       .limit(5)
@@ -129,25 +130,28 @@ export class UserService {
 
     return new ProfileOutputDto({
       user,
-      activeSubscriptionId: subscriptions.find((p) => p.expiredAt > new Date())
-        .id,
-      subscriptions: subscriptions.map((p) => {
-        return {
-          id: p.id,
-          productName: p.product.name,
-          expiredAt: p.expiredAt,
-          price: p.product.price,
-        };
-      }),
-      payments: payments.map((p) => {
-        return {
-          id: p.id,
-          status: p.status,
-          amount: p.amount,
-          paymentDate: p.paymentDate,
-          issuedSubscription: p.issuedSubscription,
-        };
-      }),
+      activeSubscriptionId: subscriptions && subscriptions[0].id,
+      subscriptions:
+        subscriptions &&
+        subscriptions.map((p) => {
+          return {
+            id: p.id,
+            productName: p.product.name,
+            expiredAt: p.expiredAt,
+            price: p.product.price,
+          };
+        }),
+      payments:
+        payments &&
+        payments.map((p) => {
+          return {
+            id: p.id,
+            status: p.status,
+            amount: p.amount,
+            paymentDate: p.paymentDate,
+            issuedSubscription: p.issuedSubscription,
+          };
+        }),
     });
   }
 
