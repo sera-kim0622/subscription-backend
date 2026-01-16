@@ -59,8 +59,9 @@ export class SubscriptionService {
 
     // 구독 객체 생성
     const subscription = this.subscriptionRepository.create({
-      userId,
-      productId,
+      user: { id: userId },
+      product: { id: productId },
+      payment: { id: paymentId },
       expiredAt,
     } as any);
 
