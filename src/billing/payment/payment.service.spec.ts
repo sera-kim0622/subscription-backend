@@ -9,6 +9,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { PeriodType } from '../subscription/types';
 import { PAYMENT_STATUS } from './entities/payment.status';
 import { randomUUID } from 'crypto';
+import { ErrorCode } from '../../common/errors/error-code.enum';
 
 let paymentService: PaymentService;
 let paymentRepository: any;
@@ -24,6 +25,7 @@ beforeEach(async () => {
   paymentRepository = {
     create: jest.fn(),
     save: jest.fn(),
+    findOne: jest.fn(),
   };
 
   userService = {
@@ -122,7 +124,7 @@ describe('결제 함수(purchase) 테스트', () => {
     expect(subscriptionService.getCurrentSubscription).toHaveBeenCalledTimes(1);
   });
 
-  it.skip('결제 결과를 받은 후 결제 테이블에 저장하다가 실패', async () => {
+  it('결제 결과를 받은 후 결제 테이블에 저장하다가 실패', async () => {
     productRepository.findOne.mockResolvedValue({
       id: 1,
       name: 'BASIC',
@@ -159,7 +161,7 @@ describe('결제 함수(purchase) 테스트', () => {
     expect(paymentRepository.create).toHaveBeenCalledTimes(1);
   });
 
-  it.skip('결제 성공 후 구독권을 생성하다가 실패 => 구독권 발급 3회 시도 중 성공', async () => {
+  it('결제 성공 후 구독권을 생성하다가 실패 => 구독권 발급 3회 시도 중 성공', async () => {
     productRepository.findOne.mockResolvedValue({
       id: 1,
       name: 'BASIC',
@@ -232,7 +234,7 @@ describe('결제 함수(purchase) 테스트', () => {
     });
   });
 
-  it.skip('결제 성공 후 구독권을 생성하다가 실패 => 구독권 발급 3회 시도 모두 실패', async () => {
+  it('결제 성공 후 구독권을 생성하다가 실패 => 구독권 발급 3회 시도 모두 실패', async () => {
     productRepository.findOne.mockResolvedValue({
       id: 1,
       name: 'BASIC',
@@ -416,9 +418,28 @@ describe('결제 함수(purchase) 테스트', () => {
 });
 
 describe('환불 함수(refund) 테스트', () => {
-  it('유저가 존재하지 않을 때 ', () => {});
+  it('유저가 존재하지 않을 때 에러 반환', async () => {
+    userService.getUser.mockImplementation(() => {
+      throw new NotFoundException('유저 없음');
+    });
 
-  it('', () => {});
+    const result = paymentService.refund(1);
+    await expect(result).rejects.toThrow(Error);
+  });
+
+  it('보유한 유료구독권이 없을경우 환불할 건이 없기때문에 에러반환', async () => {
+    userService.getUser.mockResolvedValue({ id: 1, email: 'sera@gmail.com' });
+    subscriptionService.getCurrentSubscription.mockResolvedValue(null);
+
+    try {
+      await paymentService.refund(1);
+    } catch (err) {
+      expect(err.response.code).toBe(ErrorCode.NOT_FOUND_DATA);
+    }
+
+    expect(userService.getUser).toHaveBeenCalledTimes(1);
+    expect(paymentRepository.findOne).toHaveBeenCalledTimes(0);
+  });
 
   it('', () => {});
 
