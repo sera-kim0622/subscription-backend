@@ -5,11 +5,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Product } from '../product/entities/product.entity';
 import { Payment } from './entities/payment.entity';
 import { UserService } from '../../user/user.service';
-import {
-  BadRequestException,
-  forwardRef,
-  NotFoundException,
-} from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { PeriodType } from '../subscription/types';
 import { PAYMENT_STATUS } from './entities/payment.status';
 import { randomUUID } from 'crypto';
@@ -56,10 +52,7 @@ beforeEach(async () => {
       },
       {
         provide: SubscriptionService,
-        useValue: {
-          getCurrentSubscription: jest.fn(),
-          createSubscription: jest.fn(),
-        },
+        useValue: subscriptionService,
       },
     ],
   }).compile();
@@ -122,7 +115,6 @@ describe('결제 함수(purchase) 테스트', () => {
       await paymentService.purchase({ productId: 1, simulate: 'success' }, 1);
       fail('에러가 발생해야 합니다.');
     } catch (err) {
-      console.log(err);
       expect(err).toBeInstanceOf(BadRequestException);
     }
     expect(productRepository.findOne).toHaveBeenCalledTimes(1);
