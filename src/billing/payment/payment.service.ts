@@ -1,5 +1,7 @@
 import {
   BadRequestException,
+  forwardRef,
+  Inject,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -13,7 +15,6 @@ import {
   PurchaseResultStatus,
 } from './dto/purchase.dto';
 import { SubscriptionService } from '../subscription/subscription.service';
-import { Subscription } from '../subscription/entities/subscription.entity';
 import { Payment } from './entities/payment.entity';
 import { UserService } from '../../user/user.service';
 import { PAYMENT_STATUS } from './entities/payment.status';
@@ -32,6 +33,7 @@ export class PaymentService {
     @InjectRepository(Payment)
     private readonly paymentRepository: Repository<Payment>,
     private readonly userService: UserService,
+    @Inject(forwardRef(() => SubscriptionService))
     private readonly subscriptionService: SubscriptionService,
   ) {}
 
@@ -168,6 +170,7 @@ export class PaymentService {
   /**
    * @description 환불해주는 함수, 유저가 현재 유효한 유료구독을 하고 있는 경우에만 작동
    * @param userId
+   * @todo 해당 함수 완성시키기
    */
   async refund(userId: number) {
     // 1. 유저가 존재하는지 확인
