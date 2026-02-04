@@ -89,9 +89,9 @@ export class SubscriptionService {
   }
 
   /**
-   * @description 유저의 현재 구독 정보 확인하는 함수
+   * @description 유저의 현재 구독 정보 확인하는 함수 null 이나 구독정보 반환
    */
-  async getCurrentSubscription(userId: number) {
+  async getCurrentSubscription(userId: number): Promise<Subscription | null> {
     const subscription = await this.subscriptionRepository.findOne({
       where: { user: { id: userId }, expiredAt: MoreThan(new Date()) },
     });
