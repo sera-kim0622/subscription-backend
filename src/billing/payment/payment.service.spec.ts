@@ -441,7 +441,27 @@ describe('환불 함수(refund) 테스트', () => {
     expect(paymentRepository.findOne).toHaveBeenCalledTimes(0);
   });
 
-  it('', () => {});
+  it('결제 정보가 없을 경우 에러 반환', async () => {
+    userService.getUser.mockResolvedValue({ id: 1, email: 'sera@gmail.com' });
+    subscriptionService.getCurrentSubscription.mockResolvedValue({
+      id: 1,
+      user: { id: 1 },
+      product: { id: 1 },
+      payment: { id: 1 },
+      expiredAt: new Date(),
+    });
+    paymentRepository.findOne.mockResolvedValue(undefined);
+
+    try {
+      await paymentService.refund(1);
+    } catch (err) {
+      expect(err.response.code).toBe(ErrorCode.NOT_FOUND_DATA);
+    }
+
+    expect(userService.getUser).toHaveBeenCalledTimes(1);
+    expect(subscriptionService.getCurrentSubscription).toHaveBeenCalledTimes(1);
+    expect(paymentRepository.findOne).toHaveBeenCalledTimes(1);
+  });
 
   it('', () => {});
 });
