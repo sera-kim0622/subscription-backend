@@ -423,7 +423,7 @@ describe('환불 함수(refund) 테스트', () => {
       throw new NotFoundException('유저 없음');
     });
 
-    const result = paymentService.refund(1);
+    const result = paymentService.refund({ reason: '변심' }, 1);
     await expect(result).rejects.toThrow(Error);
   });
 
@@ -432,7 +432,7 @@ describe('환불 함수(refund) 테스트', () => {
     subscriptionService.getCurrentSubscription.mockResolvedValue(null);
 
     try {
-      await paymentService.refund(1);
+      await paymentService.refund({ reason: '변심' }, 1);
     } catch (err) {
       expect(err.response.code).toBe(ErrorCode.NOT_FOUND_DATA);
     }
@@ -453,7 +453,7 @@ describe('환불 함수(refund) 테스트', () => {
     paymentRepository.findOne.mockResolvedValue(undefined);
 
     try {
-      await paymentService.refund(1);
+      await paymentService.refund({ reason: '변심' }, 1);
     } catch (err) {
       expect(err.response.code).toBe(ErrorCode.NOT_FOUND_DATA);
     }
