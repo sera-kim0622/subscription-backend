@@ -24,6 +24,8 @@ import { PaymentOutput } from './dto/payment.dto';
 import { PgPaymentResultMap } from './portone/purchase.response';
 import { ErrorCode } from '../../common/errors/error-code.enum';
 import { GetLatestPaymentOutputDto } from './dto/get-latest-payment.dto';
+import { refundPGResponse } from './portone/refund-response';
+import { RefundInputDto } from './dto/refund.dto';
 
 @Injectable()
 export class PaymentService {
@@ -172,7 +174,7 @@ export class PaymentService {
    * @param userId
    * @todo 해당 함수 완성시키기
    */
-  async refund(userId: number) {
+  async refund(dto: RefundInputDto, userId: number) {
     // 1. 유저가 존재하는지 확인
     await this.userService.getUser(userId);
 
@@ -216,10 +218,16 @@ export class PaymentService {
     // 결제한 금액 - (남은날짜 * 일간 금액)
     const refundAmount = payment.amount - remainDays * pricePerDay;
 
-    // 5. 구매기록의 id로 결제대행사에 환불 요청 보내기
-    const pgPaymentResult = {};
-    // 5-1. 결제 대행사 응답 성공 버전 작성
-    // 5-2. 결제 대행사 응답 실패 버전 작성
+    // 5. 구매기록의 id로 결제대행사에 환불 요청 보내기(가짜 요청)
+    const pgPaymentResult = refundPGResponse({
+      pgPaymentId: payment.pgPaymentId,
+      cancelBody: {
+        reason: dto.reason,
+        amount: Math.floor(refundAmount),
+      },
+      state: dto.simulate,
+    });
+
     // 6. 결제 결과 저장하기(새로운 record 생성)
     // 7. 구독 만료시키기(이 때, 연결된 payment_id는 환불한 record로 한다.)
     // 8. 결제, 구독상태 결과 반환

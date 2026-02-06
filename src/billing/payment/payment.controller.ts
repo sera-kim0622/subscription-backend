@@ -4,6 +4,7 @@ import { PaymentService } from './payment.service';
 import { PurchaseInputDto, PurchaseOutputDto } from './dto/purchase.dto';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import { CurrentUser } from 'src/auth/decorator/current-user.decorator.ts';
+import { RefundInputDto } from './dto/refund.dto';
 
 @ApiTags('payments')
 @Controller('payments')
@@ -28,7 +29,7 @@ export class PaymentController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
   @Post('refund') // 환불 과정은 취소한 행위에 대한 새로운 처리이므로 관용적으로 post를 주로 사용, 결제대행사들도 모두 post를 사용함
-  refund(@CurrentUser() userId: number) {
-    return this.paymentService.refund(userId);
+  refund(@Body() dto: RefundInputDto, @CurrentUser() userId: number) {
+    return this.paymentService.refund(dto, userId);
   }
 }
