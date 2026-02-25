@@ -122,4 +122,9 @@ export class SubscriptionService {
       paymentId: payment.id,
     });
   }
+
+  async expireSubscription(subscription: Subscription): Promise<void> {
+    subscription.expiredAt = new Date();
+    await this.subscriptionRepository.save(subscription);
+  }
 }
