@@ -253,7 +253,7 @@ export class PaymentService {
         await paymentTransactionRepo.save(cancelResultObject);
 
       // 7. 구독 만료시키기(이 때, 연결된 payment_id는 환불한 record로 한다.)
-      await this.subscriptionService.expireSubscription(subscription);
+      await this.subscriptionService.expireSubscription(manager, subscription);
 
       // 8. 결제 결과 반환
       return new RefundOutputDto({

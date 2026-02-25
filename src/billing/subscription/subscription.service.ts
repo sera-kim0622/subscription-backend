@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { MoreThan, Repository } from 'typeorm';
+import { EntityManager, MoreThan, Repository } from 'typeorm';
 
 import { Subscription } from './entities/subscription.entity';
 import { Product } from '../product/entities/product.entity';
@@ -123,8 +123,12 @@ export class SubscriptionService {
     });
   }
 
-  async expireSubscription(subscription: Subscription): Promise<void> {
+  async expireSubscription(
+    manager: EntityManager,
+    subscription: Subscription,
+  ): Promise<void> {
+    const subscriptionTransactionRepo = manager.getRepository(Subscription);
     subscription.expiredAt = new Date();
-    await this.subscriptionRepository.save(subscription);
+    await subscriptionTransactionRepo.save(subscription);
   }
 }
