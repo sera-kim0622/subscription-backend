@@ -25,7 +25,8 @@ import { PgPaymentResultMap } from './portone/purchase.response';
 import { ErrorCode } from '../../common/errors/error-code.enum';
 import { GetLatestPaymentOutputDto } from './dto/get-latest-payment.dto';
 import { refundPGResponse } from './portone/refund-response';
-import { RefundInputDto } from './dto/refund.dto';
+import { RefundInputDto, RefundOutputDto } from './dto/refund.dto';
+import { request } from 'http';
 
 @Injectable()
 export class PaymentService {
@@ -229,31 +230,44 @@ export class PaymentService {
       state: dto.simulate,
     });
 
-    // 6 ~ 7은 트랜잭션으로 묶기
-    // 6. 결제 결과 저장하기(새로운 record 생성)
+    return await this.dataSource.transaction(async (manager) => {
+      // 6. 결제 결과 저장하기(새로운 record 생성)
+      const paymentTransactionRepo = manager.getRepository(Payment);
+      const cancelResultObject = paymentTransactionRepo.create({
+        user: { id: userId },
+        subscription: { id: subscription.id },
+        pgPaymentId: pgPaymentResult.id,
+        status:
+          pgPaymentResult.status === 'SUCCEED'
+            ? PAYMENT_STATUS.SUCCESS
+            : pgPaymentResult.status === 'FAILED'
+              ? PAYMENT_STATUS.FAIL
+              : PAYMENT_STATUS.PENDING,
+        amount: pgPaymentResult.totalAmount,
+        paymentDate: pgPaymentResult.cancelledAt ?? null,
+        failReason: dto.reason,
+        issuedSubscription: false,
+      });
 
-    const cancelResultObject = this.paymentRepository.create({
-      user: { id: userId },
-      subscription: { id: subscription.id },
-      pgPaymentId: pgPaymentResult.id,
-      status:
-        pgPaymentResult.status === 'SUCCEED'
-          ? PAYMENT_STATUS.SUCCESS
-          : pgPaymentResult.status === 'FAILED'
-            ? PAYMENT_STATUS.FAIL
-            : PAYMENT_STATUS.PENDING,
-      amount: pgPaymentResult.totalAmount,
-      paymentDate: pgPaymentResult.cancelledAt ?? null,
-      failReason: dto.reason,
-      issuedSubscription: false,
+      const cancelResult =
+        await paymentTransactionRepo.save(cancelResultObject);
+
+      // 7. 구독 만료시키기(이 때, 연결된 payment_id는 환불한 record로 한다.)
+      await this.subscriptionService.expireSubscription(subscription);
+
+      // 8. 결제 결과 반환
+      return new RefundOutputDto({
+        requestAmount: payment.amount,
+        refundAmount: cancelResult.amount,
+        resultMessage:
+          cancelResult.status === PAYMENT_STATUS.SUCCESS
+            ? '환불이 완료되었습니다.'
+            : cancelResult.status === PAYMENT_STATUS.FAIL
+              ? '환불에 실패하였습니다.'
+              : '환불 요청이 접수되었습니다.',
+        resultStatus: pgPaymentResult.status,
+      });
     });
-
-    const cancelResult = await this.paymentRepository.save(cancelResultObject);
-
-    // 7. 구독 만료시키기(이 때, 연결된 payment_id는 환불한 record로 한다.)
-    this.subscriptionService.expireSubscription(subscription);
-
-    // 8. 결제 결과 반환
   }
 
   /**
