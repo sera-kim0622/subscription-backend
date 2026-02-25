@@ -18,4 +18,8 @@ export class RefundOutputDto {
   resultMessage: string;
 
   resultStatus: 'FAILED' | 'REQUESTED' | 'SUCCEED';
+
+  constructor(partial: Partial<RefundOutputDto>) {
+    Object.assign(this, partial);
+  }
 }
