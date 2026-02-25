@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 
 import { Product } from '../product/entities/product.entity';
 import {
@@ -34,6 +34,7 @@ export class PaymentService {
     private readonly productRepository: Repository<Product>,
     @InjectRepository(Payment)
     private readonly paymentRepository: Repository<Payment>,
+    private readonly dataSource: DataSource,
     private readonly userService: UserService,
     @Inject(forwardRef(() => SubscriptionService))
     private readonly subscriptionService: SubscriptionService,
@@ -207,8 +208,8 @@ export class PaymentService {
     // 4. 환불 금액 계산하기
     // 일(Day) 단위로 계산하기, 남은 날짜 = 만료 날짜 - 현재 날짜(millisecond를 일로 환산)
     const remainDays =
-      subscription.expiredAt.getTime() -
-      new Date().getTime() / (1000 / 60 / 60 / 24);
+      (subscription.expiredAt.getTime() - new Date().getTime()) /
+      (1000 / 60 / 60 / 24);
 
     // 현재 구독중인 상품의 일간 금액 계산하기
     const pricePerDay =
@@ -228,9 +229,31 @@ export class PaymentService {
       state: dto.simulate,
     });
 
+    // 6 ~ 7은 트랜잭션으로 묶기
     // 6. 결제 결과 저장하기(새로운 record 생성)
+
+    const cancelResultObject = this.paymentRepository.create({
+      user: { id: userId },
+      subscription: { id: subscription.id },
+      pgPaymentId: pgPaymentResult.id,
+      status:
+        pgPaymentResult.status === 'SUCCEED'
+          ? PAYMENT_STATUS.SUCCESS
+          : pgPaymentResult.status === 'FAILED'
+            ? PAYMENT_STATUS.FAIL
+            : PAYMENT_STATUS.PENDING,
+      amount: pgPaymentResult.totalAmount,
+      paymentDate: pgPaymentResult.cancelledAt ?? null,
+      failReason: dto.reason,
+      issuedSubscription: false,
+    });
+
+    const cancelResult = await this.paymentRepository.save(cancelResultObject);
+
     // 7. 구독 만료시키기(이 때, 연결된 payment_id는 환불한 record로 한다.)
-    // 8. 결제, 구독상태 결과 반환
+    this.subscriptionService.expireSubscription(subscription);
+
+    // 8. 결제 결과 반환
   }
 
   /**
