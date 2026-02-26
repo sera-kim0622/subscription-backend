@@ -8,7 +8,7 @@ module.exports = {
   moduleNameMapper: {
     '^src/(.*)$': '<rootDir>/$1',
   },
-  coveragePathIgnorePatterns: ['.*\\.entity\\.ts$'],
+  coveragePathIgnorePatterns: ['.*\\.entity\\.ts$', '.*\\.dto\\.ts$'],
   collectCoverage: true,
   coverageDirectory: 'coverage',
   coverageReporters: ['json-summary', 'lcov', 'text'],
