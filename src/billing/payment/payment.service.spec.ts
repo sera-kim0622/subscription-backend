@@ -10,12 +10,16 @@ import { PeriodType } from '../subscription/types';
 import { PAYMENT_STATUS } from './entities/payment.status';
 import { randomUUID } from 'crypto';
 import { ErrorCode } from '../../common/errors/error-code.enum';
+import { DataSource } from 'typeorm';
 
 let paymentService: PaymentService;
 let paymentRepository: any;
 let productRepository: any;
 let userService: any;
 let subscriptionService: any;
+let dataSource: any;
+let paymentTransactionRepository: any;
+let manager: any;
 
 beforeEach(async () => {
   productRepository = {
@@ -35,7 +39,26 @@ beforeEach(async () => {
   subscriptionService = {
     getCurrentSubscription: jest.fn(),
     createSubscription: jest.fn(),
+    expireSubscription: jest.fn(),
   };
+
+  paymentTransactionRepository = {
+    create: jest.fn(),
+    save: jest.fn(),
+  };
+
+  manager = {
+    getRepository: jest.fn(),
+  };
+
+  dataSource = {
+    transaction: jest.fn(),
+  };
+
+  manager.getRepository.mockReturnValue(paymentTransactionRepository);
+  dataSource.transaction.mockImplementation(async (callback) => {
+    return await callback(manager);
+  });
 
   const module: TestingModule = await Test.createTestingModule({
     providers: [
@@ -47,6 +70,10 @@ beforeEach(async () => {
       {
         provide: getRepositoryToken(Payment),
         useValue: paymentRepository,
+      },
+      {
+        provide: DataSource,
+        useValue: dataSource,
       },
       {
         provide: UserService,
@@ -425,6 +452,9 @@ describe('환불 함수(refund) 테스트', () => {
 
     const result = paymentService.refund({ reason: '변심' }, 1);
     await expect(result).rejects.toThrow(Error);
+    expect(subscriptionService.getCurrentSubscription).toHaveBeenCalledTimes(0);
+    expect(paymentRepository.findOne).toHaveBeenCalledTimes(0);
+    expect(dataSource.transaction).toHaveBeenCalledTimes(0);
   });
 
   it('보유한 유료구독권이 없을경우 환불할 건이 없기때문에 에러반환', async () => {
@@ -438,7 +468,9 @@ describe('환불 함수(refund) 테스트', () => {
     }
 
     expect(userService.getUser).toHaveBeenCalledTimes(1);
+    expect(subscriptionService.getCurrentSubscription).toHaveBeenCalledTimes(1);
     expect(paymentRepository.findOne).toHaveBeenCalledTimes(0);
+    expect(dataSource.transaction).toHaveBeenCalledTimes(0);
   });
 
   it('결제 정보가 없을 경우 에러 반환', async () => {
@@ -461,7 +493,134 @@ describe('환불 함수(refund) 테스트', () => {
     expect(userService.getUser).toHaveBeenCalledTimes(1);
     expect(subscriptionService.getCurrentSubscription).toHaveBeenCalledTimes(1);
     expect(paymentRepository.findOne).toHaveBeenCalledTimes(1);
+    expect(dataSource.transaction).toHaveBeenCalledTimes(0);
   });
 
-  it('', () => {});
+  it('환불 성공 시 환불 결과를 저장하고 구독 만료 후 결과를 반환', async () => {
+    const futureDate = new Date(Date.now() + 1000 * 60 * 60 * 24 * 10);
+
+    userService.getUser.mockResolvedValue({ id: 1, email: 'sera@gmail.com' });
+    subscriptionService.getCurrentSubscription.mockResolvedValue({
+      id: 10,
+      user: { id: 1 },
+      product: { id: 1, type: PeriodType.MONTHLY, price: 3000 },
+      payment: { id: 3 },
+      expiredAt: futureDate,
+    });
+    paymentRepository.findOne.mockResolvedValue({
+      id: 3,
+      pgPaymentId: randomUUID(),
+      status: PAYMENT_STATUS.SUCCESS,
+      amount: 3000,
+    });
+    paymentTransactionRepository.create.mockImplementation((v) => v);
+    paymentTransactionRepository.save.mockResolvedValue({
+      id: 20,
+      status: PAYMENT_STATUS.SUCCESS,
+      amount: 1000,
+    });
+    subscriptionService.expireSubscription.mockResolvedValue(undefined);
+
+    const result = await paymentService.refund(
+      { reason: '변심', simulate: 'success' },
+      1,
+    );
+
+    expect(userService.getUser).toHaveBeenCalledTimes(1);
+    expect(subscriptionService.getCurrentSubscription).toHaveBeenCalledTimes(1);
+    expect(paymentRepository.findOne).toHaveBeenCalledTimes(1);
+    expect(dataSource.transaction).toHaveBeenCalledTimes(1);
+    expect(manager.getRepository).toHaveBeenCalledTimes(1);
+    expect(paymentTransactionRepository.create).toHaveBeenCalledTimes(1);
+    expect(paymentTransactionRepository.save).toHaveBeenCalledTimes(1);
+    expect(subscriptionService.expireSubscription).toHaveBeenCalledTimes(1);
+    expect(subscriptionService.expireSubscription).toHaveBeenCalledWith(
+      manager,
+      expect.objectContaining({ id: 10 }),
+    );
+    expect(result.resultMessage).toBe('환불이 완료되었습니다.');
+    expect(result.resultStatus).toBe('SUCCEED');
+  });
+
+  it('환불 실패 시 실패 결과를 저장하고 구독 만료 후 결과를 반환', async () => {
+    const futureDate = new Date(Date.now() + 1000 * 60 * 60 * 24 * 10);
+
+    userService.getUser.mockResolvedValue({ id: 1, email: 'sera@gmail.com' });
+    subscriptionService.getCurrentSubscription.mockResolvedValue({
+      id: 10,
+      user: { id: 1 },
+      product: { id: 1, type: PeriodType.MONTHLY, price: 3000 },
+      payment: { id: 3 },
+      expiredAt: futureDate,
+    });
+    paymentRepository.findOne.mockResolvedValue({
+      id: 3,
+      pgPaymentId: randomUUID(),
+      status: PAYMENT_STATUS.SUCCESS,
+      amount: 3000,
+    });
+    paymentTransactionRepository.create.mockImplementation((v) => v);
+    paymentTransactionRepository.save.mockResolvedValue({
+      id: 20,
+      status: PAYMENT_STATUS.FAIL,
+      amount: 1000,
+    });
+    subscriptionService.expireSubscription.mockResolvedValue(undefined);
+
+    const result = await paymentService.refund(
+      { reason: '변심', simulate: 'fail' },
+      1,
+    );
+
+    expect(userService.getUser).toHaveBeenCalledTimes(1);
+    expect(subscriptionService.getCurrentSubscription).toHaveBeenCalledTimes(1);
+    expect(paymentRepository.findOne).toHaveBeenCalledTimes(1);
+    expect(dataSource.transaction).toHaveBeenCalledTimes(1);
+    expect(paymentTransactionRepository.create).toHaveBeenCalledTimes(1);
+    expect(paymentTransactionRepository.save).toHaveBeenCalledTimes(1);
+    expect(subscriptionService.expireSubscription).toHaveBeenCalledTimes(1);
+    expect(result.resultMessage).toBe('환불에 실패하였습니다.');
+    expect(result.resultStatus).toBe('FAILED');
+  });
+
+  it('환불 요청 접수 상태일 때 요청 접수 결과를 반환', async () => {
+    const futureDate = new Date(Date.now() + 1000 * 60 * 60 * 24 * 10);
+
+    userService.getUser.mockResolvedValue({ id: 1, email: 'sera@gmail.com' });
+    subscriptionService.getCurrentSubscription.mockResolvedValue({
+      id: 10,
+      user: { id: 1 },
+      product: { id: 1, type: PeriodType.MONTHLY, price: 3000 },
+      payment: { id: 3 },
+      expiredAt: futureDate,
+    });
+    paymentRepository.findOne.mockResolvedValue({
+      id: 3,
+      pgPaymentId: randomUUID(),
+      status: PAYMENT_STATUS.SUCCESS,
+      amount: 3000,
+    });
+    paymentTransactionRepository.create.mockImplementation((v) => v);
+    paymentTransactionRepository.save.mockResolvedValue({
+      id: 20,
+      status: PAYMENT_STATUS.PENDING,
+      amount: 1000,
+    });
+    subscriptionService.expireSubscription.mockResolvedValue(undefined);
+
+    const result = await paymentService.refund(
+      { reason: '변심', simulate: 'requested' },
+      1,
+    );
+
+    expect(userService.getUser).toHaveBeenCalledTimes(1);
+    expect(subscriptionService.getCurrentSubscription).toHaveBeenCalledTimes(1);
+    expect(paymentRepository.findOne).toHaveBeenCalledTimes(1);
+    expect(dataSource.transaction).toHaveBeenCalledTimes(1);
+    expect(paymentTransactionRepository.create).toHaveBeenCalledTimes(1);
+    expect(paymentTransactionRepository.save).toHaveBeenCalledTimes(1);
+    expect(subscriptionService.expireSubscription).toHaveBeenCalledTimes(1);
+    expect(result.resultMessage).toBe('환불 요청이 접수되었습니다.');
+    expect(result.resultStatus).toBe('REQUESTED');
+  });
 });
