@@ -7,30 +7,26 @@ services:
       POSTGRES_USER: ${DB_USERNAME}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: ${DB_DATABASE}
-    ports:
-      - '5430:5432'
     volumes:
       - pgdata:/var/lib/postgresql/data
     networks:
       - app-network
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U ${DB_USER} -d ${DB_NAME}']
+      test: ['CMD-SHELL', 'pg_isready -U ${DB_USERNAME} -d ${DB_DATABASE}']
       interval: 5s
       timeout: 3s
       retries: 5
-      start_period: 5s
 
   subscription-app:
-    build: .
+    image: sera0622/subscription-backend:latest
     container_name: subscription
+    restart: always
     environment:
       DB_USERNAME: ${DB_USERNAME}
       DB_DATABASE: ${DB_DATABASE}
       DB_PASSWORD: ${DB_PASSWORD}
       DB_HOST: subscription-db
       DB_PORT: ${DB_PORT}
-    ports:
-      - '3000:3000'
     depends_on:
       subscription-db:
         condition: service_healthy
