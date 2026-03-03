@@ -31,6 +31,10 @@ jobs:
           script: |
             cd /home/ubuntu/subscription-back
 
+            echo "📥Sync latest repository..."
+            git fetch origin main
+            git reset --hard origin/main
+
             echo "🐳 Pull latest image..."
             docker pull serakim0622/subscription-backend:latest
 
