@@ -49,4 +49,14 @@ export class UserController {
     const userId = Number(req.user.userId);
     return await this.userService.profile(userId);
   }
+
+  @Post('logout')
+  async logout(@Res({ passthrough: true }) res: Response) {
+    res.clearCookie('accessToken', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+    });
+  }
 }
