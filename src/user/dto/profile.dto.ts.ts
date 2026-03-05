@@ -37,13 +37,13 @@ export class ProfileOutputDto {
 
   payments: RecentPaymentList[];
 
-  activeSubscriptionId: number;
+  activeSubscriptionId: number | null;
 
   constructor(params: {
     user: User;
     subscriptions: RecentSubscriptionList[];
     payments: RecentPaymentList[];
-    activeSubscriptionId: number
+    activeSubscriptionId: number;
   }) {
     const { user, subscriptions, payments, activeSubscriptionId } = params;
 
@@ -52,6 +52,6 @@ export class ProfileOutputDto {
     this.role = user.role;
     this.subscriptions = subscriptions;
     this.payments = payments;
-    this.activeSubscriptionId = activeSubscriptionId
+    this.activeSubscriptionId = activeSubscriptionId;
   }
 }

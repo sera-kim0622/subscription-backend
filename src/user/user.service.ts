@@ -130,7 +130,7 @@ export class UserService {
 
     return new ProfileOutputDto({
       user,
-      activeSubscriptionId: subscriptions && subscriptions[0].id,
+      activeSubscriptionId: subscriptions.length ? subscriptions[0].id : null,
       subscriptions:
         subscriptions &&
         subscriptions.map((p) => {
