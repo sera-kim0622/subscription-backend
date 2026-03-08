@@ -16,6 +16,7 @@ async function bootstrap() {
     .setDescription('구독/결제 API 문서')
     .setVersion('1.0')
     .addBearerAuth()
+    .addServer('/api')
     .build();
 
   const document = SwaggerModule.createDocument(app, config, {
